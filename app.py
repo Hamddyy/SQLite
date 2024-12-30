@@ -1,34 +1,40 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, jsonify, render_template
 import sqlite3
 
 app = Flask(__name__)
 
-# الاتصال بقاعدة البيانات
-def get_db_connection():
-    conn = sqlite3.connect('restaurant_reservations.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+# Database path
+DATABASE = "reservations.db"
 
-# الصفحة الرئيسية التي تعرض نموذج الحجز
+def connect_db():
+    return sqlite3.connect(DATABASE)
+
+# Route to render the HTML page
 @app.route('/')
-def index():
+def home():
     return render_template('index.html')
 
-# التعامل مع طلبات الحجز
-@app.route('/reserve', methods=['POST'])
-def reserve_table():
-    table_number = request.form['table_number']
-    reservation_date = request.form['reservation_date']
-    customer_name = request.form['customer_name']
-    customer_contact = request.form['customer_contact']
-    
-    conn = get_db_connection()
-    conn.execute('INSERT INTO reservations (table_number, reservation_date, customer_name, customer_contact) VALUES (?, ?, ?, ?)',
-                 (table_number, reservation_date, customer_name, customer_contact))
-    conn.commit()
-    conn.close()
-    
-    return 'تم الحجز بنجاح!'
+# API to handle form submission
+@app.route('/add_reservation', methods=['POST'])
+def add_reservation():
+    try:
+        table_number = request.form['table_number']
+        reservation_date = request.form['reservation_date']
+        customer_name = request.form['customer_name']
+        customer_contact = request.form['customer_contact']
+
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO reservations (table_number, reservation_date, customer_name, customer_contact)
+            VALUES (?, ?, ?, ?);
+        """, (table_number, reservation_date, customer_name, customer_contact))
+        conn.commit()
+        conn.close()
+
+        return jsonify({'message': 'Reservation added successfully!'})
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 if __name__ == '__main__':
     app.run(debug=True)
